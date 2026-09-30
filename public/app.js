@@ -635,6 +635,9 @@ function renderBoardView() {
 
 // 3. COMPACT LIST VIEW
 function renderListView() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'list-view-table-wrapper';
+
   const table = document.createElement('table');
   table.className = 'list-view-table';
   table.innerHTML = `
@@ -713,7 +716,8 @@ function renderListView() {
     tbody.appendChild(tr);
   });
 
-  tasksViewContainer.appendChild(table);
+  wrapper.appendChild(table);
+  tasksViewContainer.appendChild(wrapper);
 }
 
 // Helper: Create Task Card Component
