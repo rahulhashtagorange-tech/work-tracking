@@ -40,10 +40,26 @@
         <span class="search-clear-btn" id="clearSearchBtn" style="display: none;">&times;</span>
       </div>
 
-      <div class="nav-actions">
         <div class="live-clock" id="liveClockDisplay">
           <span id="currentDateStr">Loading...</span>
         </div>
+        
+        <!-- User Profile Pill -->
+        <div class="user-profile-badge" id="userProfileBadge" style="display: none;">
+          <div class="user-avatar" id="userAvatar">U</div>
+          <div class="user-meta">
+            <span class="user-display-name" id="userDisplayName">User</span>
+            <span class="user-handle" id="userHandle">@handle</span>
+          </div>
+          <button class="logout-btn" id="logoutBtn" title="Log Out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+
         <button class="btn btn-secondary" id="exportBtn" title="Export tasks to CSV">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -400,6 +416,59 @@
 
   <!-- TOAST NOTIFICATIONS CONTAINER -->
   <div class="toast-container" id="toastContainer"></div>
+
+  <!-- AUTH OVERLAY SCREEN (Shown when logged out) -->
+  <div class="auth-overlay active" id="authOverlay">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </div>
+        <h2>Work<span class="gradient-text">Tracker</span></h2>
+        <p class="auth-subtitle">Organize projects, tasks &amp; time securely</p>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab-btn active" id="tabLoginBtn" type="button">Sign In</button>
+        <button class="auth-tab-btn" id="tabRegisterBtn" type="button">Create Account</button>
+      </div>
+
+      <!-- SIGN IN FORM -->
+      <form id="loginForm" class="auth-form active">
+        <div class="form-group">
+          <label for="loginUserIdInput">User ID / Username</label>
+          <input type="text" id="loginUserIdInput" placeholder="e.g. rahul" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="loginPasswordInput">Password</label>
+          <input type="password" id="loginPasswordInput" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <div class="auth-error-msg" id="loginErrorMsg" style="display: none;"></div>
+        <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form id="registerForm" class="auth-form" style="display: none;">
+        <div class="form-group">
+          <label for="regNameInput">Your Name</label>
+          <input type="text" id="regNameInput" placeholder="e.g. Rahul Kumar" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="regUserIdInput">User ID (Username) <span class="required">*</span></label>
+          <input type="text" id="regUserIdInput" placeholder="e.g. rahul" required autocomplete="username">
+          <span class="field-hint">📁 A private JSON database will be created for this user ID.</span>
+        </div>
+        <div class="form-group">
+          <label for="regPasswordInput">Password <span class="required">*</span></label>
+          <input type="password" id="regPasswordInput" placeholder="Min 4 characters" minlength="4" required autocomplete="new-password">
+        </div>
+        <div class="auth-error-msg" id="regErrorMsg" style="display: none;"></div>
+        <button type="submit" class="btn btn-primary btn-block">Create Account &amp; Start</button>
+      </form>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

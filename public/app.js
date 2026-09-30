@@ -1,6 +1,8 @@
-// WorkTracker - Client Application Logic
+// WorkTracker - Client Application Logic with Multi-User Authentication
 
 const state = {
+  token: localStorage.getItem('wt_token') || '',
+  currentUser: JSON.parse(localStorage.getItem('wt_user') || 'null'),
   tasks: [],
   projects: [],
   stats: {},
@@ -41,6 +43,20 @@ const closeProjectModalBtn = document.getElementById('closeProjectModalBtn');
 const cancelProjectModalBtn = document.getElementById('cancelProjectModalBtn');
 const exportBtn = document.getElementById('exportBtn');
 
+// Auth DOM References
+const authOverlay = document.getElementById('authOverlay');
+const loginForm = document.getElementById('loginForm');
+const registerForm = document.getElementById('registerForm');
+const tabLoginBtn = document.getElementById('tabLoginBtn');
+const tabRegisterBtn = document.getElementById('tabRegisterBtn');
+const loginErrorMsg = document.getElementById('loginErrorMsg');
+const regErrorMsg = document.getElementById('regErrorMsg');
+const userProfileBadge = document.getElementById('userProfileBadge');
+const userAvatar = document.getElementById('userAvatar');
+const userDisplayName = document.getElementById('userDisplayName');
+const userHandle = document.getElementById('userHandle');
+const logoutBtn = document.getElementById('logoutBtn');
+
 // View switchers
 const viewModeDate = document.getElementById('viewModeDate');
 const viewModeBoard = document.getElementById('viewModeBoard');
@@ -59,7 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initClock();
   initColorPicker();
   setupEventListeners();
-  loadData();
+  setupAuthEventListeners();
+
+  if (state.token && state.currentUser) {
+    applyLoggedInUser(state.currentUser);
+    checkAuthSession();
+  } else {
+    showAuthModal();
+  }
 });
 
 // Live Clock & Date Helper
@@ -74,6 +97,174 @@ function initClock() {
   setInterval(updateTime, 60000);
 }
 
+// ----------------------------------------------------
+// AUTHENTICATED FETCH HELPER
+// ----------------------------------------------------
+
+async function authFetch(url, options = {}) {
+  const headers = options.headers || {};
+  if (state.token) {
+    headers['Authorization'] = `Bearer ${state.token}`;
+  }
+  const res = await fetch(url, { ...options, headers });
+
+  if (res.status === 401) {
+    handleSessionExpired();
+    throw new Error('Unauthorized');
+  }
+
+  return res;
+}
+
+function handleSessionExpired() {
+  localStorage.removeItem('wt_token');
+  localStorage.removeItem('wt_user');
+  state.token = '';
+  state.currentUser = null;
+  userProfileBadge.style.display = 'none';
+  showAuthModal();
+  showToast('Session expired. Please log in again.', 'error');
+}
+
+async function checkAuthSession() {
+  try {
+    const res = await authFetch('/api/auth/me');
+    const json = await res.json();
+    if (json.success) {
+      applyLoggedInUser(json.user);
+      loadData();
+    } else {
+      handleSessionExpired();
+    }
+  } catch (err) {
+    handleSessionExpired();
+  }
+}
+
+function applyLoggedInUser(user) {
+  state.currentUser = user;
+  const displayName = user.name || user.userId;
+  userDisplayName.textContent = displayName;
+  userHandle.textContent = `@${user.userId}`;
+  userAvatar.textContent = displayName.charAt(0).toUpperCase();
+  userProfileBadge.style.display = 'flex';
+  authOverlay.classList.remove('active');
+}
+
+function showAuthModal() {
+  authOverlay.classList.add('active');
+  userProfileBadge.style.display = 'none';
+  loginForm.reset();
+  registerForm.reset();
+  loginErrorMsg.style.display = 'none';
+  regErrorMsg.style.display = 'none';
+}
+
+// Setup Auth Tabs & Submission
+function setupAuthEventListeners() {
+  tabLoginBtn.addEventListener('click', () => {
+    tabLoginBtn.classList.add('active');
+    tabRegisterBtn.classList.remove('active');
+    loginForm.style.display = 'flex';
+    registerForm.style.display = 'none';
+    loginErrorMsg.style.display = 'none';
+  });
+
+  tabRegisterBtn.addEventListener('click', () => {
+    tabRegisterBtn.classList.add('active');
+    tabLoginBtn.classList.remove('active');
+    registerForm.style.display = 'flex';
+    loginForm.style.display = 'none';
+    regErrorMsg.style.display = 'none';
+  });
+
+  // Login Submit
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginErrorMsg.style.display = 'none';
+
+    const userId = document.getElementById('loginUserIdInput').value.trim();
+    const password = document.getElementById('loginPasswordInput').value;
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, password })
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        state.token = json.token;
+        localStorage.setItem('wt_token', json.token);
+        localStorage.setItem('wt_user', JSON.stringify(json.user));
+        applyLoggedInUser(json.user);
+        showToast(`Welcome back, ${json.user.name}!`, 'success');
+        loadData();
+      } else {
+        loginErrorMsg.textContent = json.message || 'Invalid User ID or password';
+        loginErrorMsg.style.display = 'block';
+      }
+    } catch (err) {
+      loginErrorMsg.textContent = 'Server connection failed';
+      loginErrorMsg.style.display = 'block';
+    }
+  });
+
+  // Register Submit
+  registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    regErrorMsg.style.display = 'none';
+
+    const name = document.getElementById('regNameInput').value.trim();
+    const userId = document.getElementById('regUserIdInput').value.trim();
+    const password = document.getElementById('regPasswordInput').value;
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, userId, password })
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        state.token = json.token;
+        localStorage.setItem('wt_token', json.token);
+        localStorage.setItem('wt_user', JSON.stringify(json.user));
+        applyLoggedInUser(json.user);
+        showToast(`Account created for ${json.user.userId}!`, 'success');
+        loadData();
+      } else {
+        regErrorMsg.textContent = json.message || 'Error creating account';
+        regErrorMsg.style.display = 'block';
+      }
+    } catch (err) {
+      regErrorMsg.textContent = 'Server connection failed';
+      regErrorMsg.style.display = 'block';
+    }
+  });
+
+  // Logout Click
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await authFetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
+    localStorage.removeItem('wt_token');
+    localStorage.removeItem('wt_user');
+    state.token = '';
+    state.currentUser = null;
+    state.tasks = [];
+    state.projects = [];
+    state.stats = {};
+    renderTasks();
+    renderProjects();
+    renderStats();
+    showAuthModal();
+    showToast('Logged out successfully', 'info');
+  });
+}
+
 // Fetch all initial data
 async function loadData() {
   await Promise.all([fetchProjects(), fetchTasks(), fetchStats()]);
@@ -85,7 +276,7 @@ async function loadData() {
 
 async function fetchProjects() {
   try {
-    const res = await fetch('/api/projects');
+    const res = await authFetch('/api/projects');
     const json = await res.json();
     if (json.success) {
       state.projects = json.data;
@@ -93,7 +284,6 @@ async function fetchProjects() {
       populateProjectDropdown();
     }
   } catch (err) {
-    showToast('Failed to load projects', 'error');
     console.error(err);
   }
 }
@@ -106,7 +296,6 @@ async function fetchTasks() {
     if (state.filters.priority) params.append('priority', state.filters.priority);
     if (state.filters.search) params.append('search', state.filters.search);
 
-    // Date filtering logic
     const today = getTodayStr();
     if (state.filters.dateFilter === 'today') {
       params.append('date', today);
@@ -119,12 +308,11 @@ async function fetchTasks() {
       params.append('date', state.filters.customDate);
     }
 
-    const res = await fetch(`/api/tasks?${params.toString()}`);
+    const res = await authFetch(`/api/tasks?${params.toString()}`);
     const json = await res.json();
     if (json.success) {
       let tasks = json.data;
 
-      // Handle overdue client side filter if needed
       if (state.filters.dateFilter === 'overdue') {
         tasks = tasks.filter(t => t.date < today && t.status !== 'Completed');
       }
@@ -134,14 +322,13 @@ async function fetchTasks() {
       renderActiveFilterBadges();
     }
   } catch (err) {
-    showToast('Failed to load tasks', 'error');
     console.error(err);
   }
 }
 
 async function fetchStats() {
   try {
-    const res = await fetch('/api/stats');
+    const res = await authFetch('/api/stats');
     const json = await res.json();
     if (json.success) {
       state.stats = json.data;
@@ -169,7 +356,6 @@ function renderStats() {
 function renderProjects() {
   projectListContainer.innerHTML = '';
 
-  // All Projects Item
   const totalCount = state.projects.reduce((acc, p) => acc + (p.taskCount || 0), 0);
   const allItem = document.createElement('div');
   allItem.className = `project-item ${state.filters.projectId === '' ? 'active' : ''}`;
@@ -189,7 +375,6 @@ function renderProjects() {
   });
   projectListContainer.appendChild(allItem);
 
-  // Individual Projects
   state.projects.forEach(project => {
     const item = document.createElement('div');
     item.className = `project-item ${state.filters.projectId === project.id ? 'active' : ''}`;
@@ -237,7 +422,6 @@ function populateProjectDropdown() {
 function renderActiveFilterBadges() {
   activeFilterBadges.innerHTML = '';
 
-  // Project badge
   if (state.filters.projectId) {
     const proj = state.projects.find(p => p.id === state.filters.projectId);
     if (proj) {
@@ -249,7 +433,6 @@ function renderActiveFilterBadges() {
     }
   }
 
-  // Date badge
   if (state.filters.dateFilter !== 'all') {
     let label = `Date: ${state.filters.dateFilter.toUpperCase()}`;
     if (state.filters.dateFilter === 'custom' && state.filters.customDate) {
@@ -260,7 +443,6 @@ function renderActiveFilterBadges() {
     });
   }
 
-  // Status badge
   if (state.filters.status) {
     createActiveBadge(`Status: ${state.filters.status}`, () => {
       state.filters.status = '';
@@ -269,7 +451,6 @@ function renderActiveFilterBadges() {
     });
   }
 
-  // Priority badge
   if (state.filters.priority) {
     createActiveBadge(`Priority: ${state.filters.priority}`, () => {
       state.filters.priority = '';
@@ -278,7 +459,6 @@ function renderActiveFilterBadges() {
     });
   }
 
-  // Search badge
   if (state.filters.search) {
     createActiveBadge(`Search: "${state.filters.search}"`, () => {
       state.filters.search = '';
@@ -288,7 +468,6 @@ function renderActiveFilterBadges() {
     });
   }
 
-  // Update Section Title
   let title = 'Date-wise Timeline';
   if (state.viewMode === 'board') title = 'Kanban Task Board';
   if (state.viewMode === 'list') title = 'Tasks Directory';
@@ -356,7 +535,6 @@ function renderDateGroupedView() {
   const today = getTodayStr();
   const tomorrow = getTomorrowStr();
 
-  // Group tasks by date string
   const grouped = {};
   state.tasks.forEach(task => {
     const d = task.date || 'No Date';
@@ -364,7 +542,6 @@ function renderDateGroupedView() {
     grouped[d].push(task);
   });
 
-  // Sort dates
   const sortedDates = Object.keys(grouped).sort();
 
   sortedDates.forEach(dateStr => {
@@ -372,7 +549,6 @@ function renderDateGroupedView() {
     const groupEl = document.createElement('div');
     groupEl.className = 'date-group';
 
-    // Format human-readable date & status badge
     let dateLabel = dateStr;
     let tagHtml = '';
 
@@ -529,7 +705,6 @@ function renderListView() {
       </td>
     `;
 
-    // Event listeners
     tr.querySelector('.custom-checkbox').addEventListener('click', () => toggleTaskCompletion(task));
     tr.querySelector('.status-dropdown-select').addEventListener('change', (e) => updateTaskStatus(task.id, e.target.value));
     tr.querySelector('.edit-task-btn').addEventListener('click', () => openEditTaskModal(task));
@@ -608,7 +783,6 @@ function createTaskCard(task, compact = false) {
     </div>
   `;
 
-  // Hook event handlers
   card.querySelector('.custom-checkbox').addEventListener('click', () => toggleTaskCompletion(task));
   card.querySelector('.status-dropdown-select').addEventListener('change', (e) => updateTaskStatus(task.id, e.target.value));
   card.querySelector('.edit-task-btn').addEventListener('click', () => openEditTaskModal(task));
@@ -628,7 +802,7 @@ async function toggleTaskCompletion(task) {
 
 async function updateTaskStatus(taskId, newStatus) {
   try {
-    const res = await fetch(`/api/tasks/${taskId}/status`, {
+    const res = await authFetch(`/api/tasks/${taskId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
@@ -636,7 +810,6 @@ async function updateTaskStatus(taskId, newStatus) {
     const json = await res.json();
     if (json.success) {
       showToast(`Status updated to ${newStatus}`, 'info');
-      // Update in memory and re-render
       const t = state.tasks.find(x => x.id === taskId);
       if (t) t.status = newStatus;
       renderTasks();
@@ -654,7 +827,7 @@ async function updateTaskStatus(taskId, newStatus) {
 async function confirmDeleteTask(taskId) {
   if (!confirm('Are you sure you want to delete this task?')) return;
   try {
-    const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+    const res = await authFetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
     const json = await res.json();
     if (json.success) {
       showToast('Task deleted', 'info');
@@ -674,7 +847,7 @@ async function confirmDeleteTask(taskId) {
 async function confirmDeleteProject(projectId, projectName) {
   if (!confirm(`Delete project "${projectName}" and all its tasks? This action cannot be undone.`)) return;
   try {
-    const res = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
+    const res = await authFetch(`/api/projects/${projectId}`, { method: 'DELETE' });
     const json = await res.json();
     if (json.success) {
       showToast(`Project "${projectName}" deleted`, 'info');
@@ -700,7 +873,6 @@ window.openAddTaskModal = function() {
   taskIdField.value = '';
   taskForm.reset();
 
-  // Pre-fill defaults
   document.getElementById('taskDateField').value = getTodayStr();
   document.getElementById('taskHoursInput').value = '0';
   document.getElementById('taskMinutesInput').value = '0';
@@ -741,7 +913,6 @@ function closeProjectModal() {
   projectModalOverlay.classList.remove('active');
 }
 
-// Helper: Set task form date
 window.setTaskFormDate = function(preset) {
   const dateInput = document.getElementById('taskDateField');
   if (preset === 'today') {
@@ -753,13 +924,11 @@ window.setTaskFormDate = function(preset) {
   }
 };
 
-// Helper: Set task form time preset
 window.setTaskFormTime = function(h, m) {
   document.getElementById('taskHoursInput').value = h;
   document.getElementById('taskMinutesInput').value = m;
 };
 
-// Color Picker Selection in Project Modal
 function initColorPicker() {
   const picker = document.getElementById('colorPalettePicker');
   const hiddenInput = document.getElementById('projectColorInput');
@@ -777,7 +946,6 @@ function initColorPicker() {
 // ----------------------------------------------------
 
 function setupEventListeners() {
-  // Modal Buttons
   openAddTaskModalBtn.addEventListener('click', openAddTaskModal);
   closeTaskModalBtn.addEventListener('click', closeTaskModal);
   cancelTaskModalBtn.addEventListener('click', closeTaskModal);
@@ -793,7 +961,6 @@ function setupEventListeners() {
     });
   }
 
-  // Close modals on outside click or ESC
   [taskModalOverlay, projectModalOverlay].forEach(overlay => {
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
@@ -828,7 +995,7 @@ function setupEventListeners() {
       const url = id ? `/api/tasks/${id}` : '/api/tasks';
       const method = id ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(taskPayload)
@@ -858,7 +1025,7 @@ function setupEventListeners() {
     };
 
     try {
-      const res = await fetch('/api/projects', {
+      const res = await authFetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(projectPayload)
@@ -947,7 +1114,8 @@ function setupEventListeners() {
 
   // Export CSV
   exportBtn.addEventListener('click', () => {
-    window.location.href = '/api/export/csv';
+    if (!state.token) return;
+    window.location.href = `/api/export/csv?token=${encodeURIComponent(state.token)}`;
   });
 
   // Stat Card click shortcuts
@@ -1014,7 +1182,6 @@ function syncFilterUIs() {
   updatePriorityChipUI();
 }
 
-// Toast Notifications
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
