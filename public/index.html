@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WorkTracker — Date & Project Task Tracker</title>
+  <meta name="description" content="A fast, modern project and date-wise task tracking system built with Node.js, Express, HTML5, CSS3, and JavaScript.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+
+  <div class="app-container">
+    <!-- TOP NAVIGATION BAR -->
+    <header class="navbar">
+      <div class="nav-brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Work<span class="gradient-text">Tracker</span></h1>
+          <span class="brand-tagline">Date & Project Hub</span>
+        </div>
+      </div>
+
+      <!-- Quick Search Bar -->
+      <div class="search-wrapper">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Search tasks, descriptions, projects..." autocomplete="off">
+        <span class="search-clear-btn" id="clearSearchBtn" style="display: none;">&times;</span>
+      </div>
+
+      <div class="nav-actions">
+        <div class="live-clock" id="liveClockDisplay">
+          <span id="currentDateStr">Loading...</span>
+        </div>
+        <button class="btn btn-secondary" id="exportBtn" title="Export tasks to CSV">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Export CSV
+        </button>
+        <button class="btn btn-primary" id="openAddTaskModalBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Add Task</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- STATS STRIP -->
+    <section class="stats-overview" id="statsOverview">
+      <div class="stat-card" data-filter="all">
+        <div class="stat-header">
+          <span class="stat-title">Total Tasks</span>
+          <div class="stat-icon icon-total">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-number" id="statTotal">0</div>
+        <div class="stat-sub">Across all projects</div>
+      </div>
+
+      <div class="stat-card" data-filter="today">
+        <div class="stat-header">
+          <span class="stat-title">Due Today</span>
+          <div class="stat-icon icon-today">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-number" id="statDueToday">0</div>
+        <div class="stat-sub">Scheduled for today</div>
+      </div>
+
+      <div class="stat-card" data-filter="in_progress">
+        <div class="stat-header">
+          <span class="stat-title">In Progress</span>
+          <div class="stat-icon icon-progress">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-number" id="statInProgress">0</div>
+        <div class="stat-sub">Active workflow</div>
+      </div>
+
+      <div class="stat-card" data-filter="completed">
+        <div class="stat-header">
+          <span class="stat-title">Completed</span>
+          <div class="stat-icon icon-done">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-number" id="statCompleted">0</div>
+        <div class="stat-sub" id="statCompletionRate">0% rate</div>
+      </div>
+
+      <div class="stat-card" data-filter="time">
+        <div class="stat-header">
+          <span class="stat-title">Time Tracked</span>
+          <div class="stat-icon icon-time">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+        </div>
+        <div class="stat-number" id="statTotalTime">0h 0m</div>
+        <div class="stat-sub">Hours & minutes logged</div>
+      </div>
+    </section>
+
+    <!-- MAIN BODY LAYOUT -->
+    <main class="main-layout">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <!-- Date-Wise Filters Section -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">
+            <span>Date Filter</span>
+            <button class="sidebar-reset-btn" id="resetDateFilterBtn" title="Reset date filter">Reset</button>
+          </div>
+          <div class="date-quick-filters">
+            <button class="filter-pill active" data-date-filter="all">All Dates</button>
+            <button class="filter-pill" data-date-filter="today">Today</button>
+            <button class="filter-pill" data-date-filter="tomorrow">Tomorrow</button>
+            <button class="filter-pill" data-date-filter="week">This Week</button>
+            <button class="filter-pill" data-date-filter="overdue">Overdue</button>
+          </div>
+          <div class="date-picker-input-group">
+            <label for="customDatePicker">Specific Date:</label>
+            <input type="date" id="customDatePicker" class="custom-date-field">
+          </div>
+        </div>
+
+        <!-- Project Filter Section -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">
+            <span>Projects</span>
+            <button class="btn-icon-link" id="openAddProjectModalBtn" title="Create new project">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              New
+            </button>
+          </div>
+
+          <div class="project-list" id="projectListContainer">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Status Filter Section -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">
+            <span>Status Filter</span>
+          </div>
+          <div class="status-filter-group">
+            <button class="status-tab active" data-status-filter="">All Status</button>
+            <button class="status-tab" data-status-filter="Pending">
+              <span class="status-bullet pending"></span> Pending
+            </button>
+            <button class="status-tab" data-status-filter="In Progress">
+              <span class="status-bullet progress"></span> In Progress
+            </button>
+            <button class="status-tab" data-status-filter="Completed">
+              <span class="status-bullet completed"></span> Completed
+            </button>
+          </div>
+        </div>
+
+        <!-- Priority Filter Section -->
+        <div class="sidebar-section">
+          <div class="sidebar-title">
+            <span>Priority Filter</span>
+          </div>
+          <div class="priority-filter-group">
+            <button class="priority-chip active" data-priority-filter="">All</button>
+            <button class="priority-chip chip-high" data-priority-filter="High">High</button>
+            <button class="priority-chip chip-med" data-priority-filter="Medium">Med</button>
+            <button class="priority-chip chip-low" data-priority-filter="Low">Low</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CONTENT AREA -->
+      <section class="content-area">
+        <!-- Content Control Bar -->
+        <div class="content-header">
+          <div class="view-info">
+            <h2 id="currentViewTitle">Date-wise Timeline</h2>
+            <div class="active-filter-badges" id="activeFilterBadges">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <div class="view-controls">
+            <div class="view-switcher">
+              <button class="view-btn active" id="viewModeDate" title="Group by Date">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span>Date-wise</span>
+              </button>
+              <button class="view-btn" id="viewModeBoard" title="Kanban Board">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="18" rx="1"></rect>
+                  <rect x="14" y="3" width="7" height="11" rx="1"></rect>
+                </svg>
+                <span>Board</span>
+              </button>
+              <button class="view-btn" id="viewModeList" title="Compact List">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+                <span>List</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TASKS CONTAINER -->
+        <div id="tasksViewContainer" class="tasks-container">
+          <!-- Dynamic tasks rendered here -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: ADD / EDIT TASK -->
+  <div class="modal-overlay" id="taskModalOverlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="taskModalTitle">Add New Task</h3>
+        <button class="close-modal-btn" id="closeTaskModalBtn">&times;</button>
+      </div>
+      <form id="taskForm" class="modal-form">
+        <input type="hidden" id="taskIdField">
+
+        <div class="form-group">
+          <label for="taskTitleInput">Task Name / Title <span class="required">*</span></label>
+          <input type="text" id="taskTitleInput" placeholder="e.g. Design user profile page" required autofocus>
+        </div>
+
+        <div class="form-group">
+          <label for="taskDescriptionInput">Description</label>
+          <textarea id="taskDescriptionInput" rows="3" placeholder="Add detailed notes, acceptance criteria, or links..."></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <label for="taskProjectSelect">Project</label>
+              <button type="button" class="btn-icon-link" id="taskModalNewProjLink">+ New Project</button>
+            </div>
+            <select id="taskProjectSelect">
+              <!-- Filled via JS -->
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="taskDateField">Date <span class="required">*</span></label>
+            <div class="date-input-with-shortcuts">
+              <input type="date" id="taskDateField" required>
+            </div>
+            <div class="quick-date-buttons">
+              <button type="button" class="btn-tiny" onclick="setTaskFormDate('today')">Today</button>
+              <button type="button" class="btn-tiny" onclick="setTaskFormDate('tomorrow')">Tomorrow</button>
+              <button type="button" class="btn-tiny" onclick="setTaskFormDate('nextWeek')">+7 Days</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="taskPrioritySelect">Priority</label>
+            <select id="taskPrioritySelect">
+              <option value="High">🔴 High Priority</option>
+              <option value="Medium" selected>🟡 Medium Priority</option>
+              <option value="Low">🟢 Low Priority</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="taskStatusSelect">Status</label>
+            <select id="taskStatusSelect">
+              <option value="Pending" selected>Pending</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Time Taken (Hours &amp; Mins)</label>
+          <div class="time-input-row">
+            <div class="time-field-wrap">
+              <input type="number" id="taskHoursInput" min="0" max="999" placeholder="0" value="0">
+              <span class="time-unit-label">hrs</span>
+            </div>
+            <div class="time-field-wrap">
+              <input type="number" id="taskMinutesInput" min="0" max="59" step="5" placeholder="0" value="0">
+              <span class="time-unit-label">mins</span>
+            </div>
+          </div>
+          <div class="quick-time-buttons">
+            <button type="button" class="btn-tiny" onclick="setTaskFormTime(0, 15)">15m</button>
+            <button type="button" class="btn-tiny" onclick="setTaskFormTime(0, 30)">30m</button>
+            <button type="button" class="btn-tiny" onclick="setTaskFormTime(1, 0)">1h</button>
+            <button type="button" class="btn-tiny" onclick="setTaskFormTime(2, 0)">2h</button>
+            <button type="button" class="btn-tiny" onclick="setTaskFormTime(4, 0)">4h</button>
+            <button type="button" class="btn-tiny" onclick="setTaskFormTime(0, 0)">Clear</button>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelTaskModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveTaskBtn">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD PROJECT -->
+  <div class="modal-overlay" id="projectModalOverlay">
+    <div class="modal-box modal-box-sm">
+      <div class="modal-header">
+        <h3>Create New Project</h3>
+        <button class="close-modal-btn" id="closeProjectModalBtn">&times;</button>
+      </div>
+      <form id="projectForm" class="modal-form">
+        <div class="form-group">
+          <label for="projectNameInput">Project Name <span class="required">*</span></label>
+          <input type="text" id="projectNameInput" placeholder="e.g. Mobile App Redesign" required>
+        </div>
+
+        <div class="form-group">
+          <label for="projectDescriptionInput">Description</label>
+          <textarea id="projectDescriptionInput" rows="2" placeholder="Brief purpose or goals of this project..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Theme Color</label>
+          <div class="color-palette-picker" id="colorPalettePicker">
+            <div class="color-option selected" data-color="#6366f1" style="background: #6366f1;"></div>
+            <div class="color-option" data-color="#ec4899" style="background: #ec4899;"></div>
+            <div class="color-option" data-color="#10b981" style="background: #10b981;"></div>
+            <div class="color-option" data-color="#f59e0b" style="background: #f59e0b;"></div>
+            <div class="color-option" data-color="#06b6d4" style="background: #06b6d4;"></div>
+            <div class="color-option" data-color="#8b5cf6" style="background: #8b5cf6;"></div>
+            <div class="color-option" data-color="#ef4444" style="background: #ef4444;"></div>
+            <div class="color-option" data-color="#14b8a6" style="background: #14b8a6;"></div>
+          </div>
+          <input type="hidden" id="projectColorInput" value="#6366f1">
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="cancelProjectModalBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATIONS CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
